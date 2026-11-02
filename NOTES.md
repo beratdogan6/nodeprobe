@@ -52,7 +52,29 @@
 - Same idea for network: bytes per second = difference in bytes / seconds.
 - Prometheus does this with the `rate()` function.
 
-## /proc vs df
-- Disk usage isn't in `/proc`. `df` gets it from the `statfs` system call.
-- My WSL disk is a virtual disk that can grow up to 1 TB, 6.9 GB used.
+## Measuring changes the system
+- `grep` and `go run` showed `MemAvailable` ~11 MB apart. `go run` compiles
+  first, so the compiler was using RAM during my measurement.
+- With a prebuilt binary the gap dropped to ~1 MB.
+- Lesson: a monitoring agent must be light, or it measures itself.
 
+## Disk: statfs, stat -f, df
+- Disk usage isn't in `/proc`. `df` and `stat -f` both ask the kernel
+  with the `statfs` system call.
+- The kernel answers in blocks: `bytes = blocks × block size (4096)`.
+- My disk: `263940717 × 4096 = 1081101176832` bytes, exactly `df -B1`'s size.
+- `Used + Available ≠ Size`: ~5% (~51 GB) is reserved for root, so the
+  system can still write logs and root can fix things when the disk is full.
+- `df`'s `Use%` is `Used / (Used + Available)`, not `Used / Size`.
+- Every file uses an inode. You can run out of inodes with free space left
+  ("No space left on device"). Check with `df -i`.
+- `stat` (without `-f`) shows a file's metadata: size, owner, permissions,
+  access/modify/change times.
+
+## Go things I keep forgetting
+- `:=` needs at least one new variable on the left. Use `=` for struct fields.
+- `log.Fatal` only in `main`. Library code returns the error.
+- A map has no index: `m["MemTotal"]`, not `m[0]`. Use `v, ok := m[key]`
+  to know if the key exists.
+- Go never converts number types for me: `uint64(st.Bsize)`.
+- Check what a function returns with `go doc` or `K` in Neovim.

@@ -32,4 +32,10 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("%+v\n", mem)
+
+	disk, err := collector.ReadDisk("/")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%+v\n", disk)
 }

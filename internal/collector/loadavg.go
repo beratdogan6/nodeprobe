@@ -4,6 +4,7 @@ package collector
 import (
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,16 @@ type LoadAvg struct {
 	Load1  float64
 	Load5  float64
 	Load15 float64
+}
+
+// ReadLoadAvg opens /proc/loadavg and parses it.
+func ReadLoadAvg() (LoadAvg, error) {
+	f, err := os.Open("/proc/loadavg")
+	if err != nil {
+		return LoadAvg{}, err
+	}
+	defer func() { _ = f.Close() }()
+	return ParseLoadAvg(f)
 }
 
 // ParseLoadAvg reads /proc/loadavg-formatted data from r and returns

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,16 @@ type MemInfo struct {
 	Total     uint64
 	Free      uint64
 	Available uint64
+}
+
+// ReadMemInfo opens /proc/meminfo and parses it.
+func ReadMemInfo() (MemInfo, error) {
+	f, err := os.Open("/proc/meminfo")
+	if err != nil {
+		return MemInfo{}, err
+	}
+	defer func() { _ = f.Close() }()
+	return ParseMemInfo(f)
 }
 
 // ParseMemInfo reads /proc/meminfo-formatted data from r and returns

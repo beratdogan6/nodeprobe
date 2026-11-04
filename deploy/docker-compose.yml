@@ -1,0 +1,49 @@
+# Prometheus + Grafana for nodeprobe.
+#
+# nodeprobe itself runs on the HOST (not in a container): it reads
+# /proc and statfs("/"), so inside a container it would report the
+# container's view instead of the machine's. The containers reach it
+# through host.docker.internal, mapped to the host gateway below.
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.4
+    container_name: nodeprobe-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: nodeprobe-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      # Local-only stack: anyone who opens it sees the dashboard without a
+      # login. Grafana pins anonymous users to Viewer, so sign in as
+      # admin / admin to edit a panel.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  prometheus-data:
+  grafana-data:

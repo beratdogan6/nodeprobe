@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s
+  scrape_timeout: 4s
+
+scrape_configs:
+  - job_name: nodeprobe
+    metrics_path: /metrics
+    static_configs:
+      # nodeprobe runs on the host, outside Docker.
+      - targets: ["host.docker.internal:9200"]
+        labels:
+          instance: localhost

@@ -1,7 +1,7 @@
 {
   "uid": "nodeprobe",
   "title": "nodeprobe",
-  "description": "Load, memory and disk metrics exposed by nodeprobe.",
+  "description": "Load, memory, disk and network metrics exposed by nodeprobe.",
   "tags": [
     "nodeprobe"
   ],
@@ -600,6 +600,70 @@
           "expr": "nodeprobe_disk_available_bytes",
           "instant": true,
           "legendFormat": "disk available"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Network",
+      "description": "Receive and transmit rate per interface. nodeprobe exports raw byte counters; rate() turns them into bytes per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "nodeprobe-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "nodeprobe-prom"
+          },
+          "expr": "rate(nodeprobe_network_receive_bytes_total[1m])",
+          "legendFormat": "{{device}} rx"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "nodeprobe-prom"
+          },
+          "expr": "rate(nodeprobe_network_transmit_bytes_total[1m])",
+          "legendFormat": "{{device}} tx"
         }
       ]
     }

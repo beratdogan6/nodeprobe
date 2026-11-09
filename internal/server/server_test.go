@@ -57,6 +57,19 @@ func TestMetrics(t *testing.T) {
 			t.Errorf("missing TYPE line for %s", name)
 		}
 	}
+
+	wantCounters := []string{
+		"nodeprobe_network_receive_bytes_total",
+		"nodeprobe_network_transmit_bytes_total",
+	}
+	for _, name := range wantCounters {
+		if !strings.Contains(body, "# TYPE "+name+" counter\n") {
+			t.Errorf("missing TYPE line for %s", name)
+		}
+		if !strings.Contains(body, name+"{device=\"") {
+			t.Errorf("no device-labelled sample for %s", name)
+		}
+	}
 }
 
 // TestMethodNotAllowed pins the behaviour the Go 1.22 method patterns

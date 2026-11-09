@@ -1,7 +1,7 @@
 # nodeprobe
 
-A dependency-free Linux metrics agent in Go that exposes CPU load, memory and
-disk usage in the Prometheus text format.
+A dependency-free Linux metrics agent in Go that exposes CPU load, memory,
+disk usage and network traffic in the Prometheus text format.
 
 [![CI](https://github.com/beratdogan6/nodeprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/beratdogan6/nodeprobe/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](go.mod)
@@ -36,6 +36,9 @@ These are single-machine numbers on an idle host, not a benchmark suite.
   - CPU load from `/proc/loadavg`
   - memory from `/proc/meminfo`
   - disk usage from the `statfs` syscall (the same call `df` makes)
+  - network byte counters from `/proc/net/dev`, one series per interface,
+    exposed as counters so Prometheus `rate()` can turn them into bytes per
+    second
 - Two endpoints: `GET /healthz` for liveness, `GET /metrics` for the
   Prometheus text exposition format (version 0.0.4)
 - Standard library only — no third-party modules, so `go.mod` has no `require`
@@ -61,7 +64,8 @@ curl localhost:9200/metrics
 # nodeprobe_memory_available_bytes 15271227392
 # nodeprobe_disk_total_bytes 1081101176832
 # nodeprobe_disk_used_bytes 8022470656
-# ... (10 metrics in all, each with its own HELP and TYPE lines)
+# nodeprobe_network_receive_bytes_total{device="eth0"} 303842249
+# ... (12 metrics in all, each with its own HELP and TYPE lines)
 ```
 
 To see the metrics on a dashboard, `deploy/` holds a Docker Compose stack with
@@ -77,7 +81,9 @@ nodeprobe runs on the host rather than in a container.
 
 ## Metrics
 
-All ten metrics are gauges, and all byte values are plain bytes.
+All byte values are plain bytes. The ten host metrics are gauges; the two
+network metrics are counters, repeated once per interface with a `device`
+label.
 
 | Metric | Type | Meaning |
 | --- | --- | --- |
@@ -91,6 +97,12 @@ All ten metrics are gauges, and all byte values are plain bytes.
 | `nodeprobe_disk_free_bytes` | gauge | Free space, including the reserve only root may use |
 | `nodeprobe_disk_available_bytes` | gauge | Space available to non-root users |
 | `nodeprobe_disk_used_bytes` | gauge | Used space on the root filesystem |
+| `nodeprobe_network_receive_bytes_total` | counter, label `device` | Bytes received on an interface since boot |
+| `nodeprobe_network_transmit_bytes_total` | counter, label `device` | Bytes transmitted on an interface since boot |
+
+The two network metrics are raw counters that only ever climb, so the bytes per
+second are not exported but computed in Prometheus with
+`rate(nodeprobe_network_receive_bytes_total[1m])`.
 
 ## How it works
 
@@ -143,8 +155,6 @@ CI runs all three commands on every push and pull request to `main`.
 
 ## Roadmap
 
-- Network counters from `/proc/net/dev`, exposed as counters so Prometheus
-  `rate()` can turn them into bytes per second
 - A `systemd` unit so the agent starts on boot and gets restarted on failure
 - Deployment to several VMs with Ansible, to see the same dashboard across hosts
 

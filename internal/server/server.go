@@ -24,8 +24,8 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintln(w, "ok")
 }
 
-// handleMetrics collects load, memory and disk stats on every request
-// and writes them in the Prometheus text format.
+// handleMetrics collects load, memory, disk and network stats on every
+// request and writes them in the Prometheus text format.
 func handleMetrics(w http.ResponseWriter, r *http.Request) {
 	load, err := collector.ReadLoadAvg()
 	if err != nil {
@@ -45,6 +45,12 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	netDevs, err := collector.ReadNetDev()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", metrics.ContentType)
 
 	metrics.WriteGauge(w, "nodeprobe_load1", "1-minute load average.", load.Load1)
@@ -59,4 +65,15 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 	metrics.WriteGauge(w, "nodeprobe_disk_free_bytes", "Free space, including the root reserve.", float64(disk.Free))
 	metrics.WriteGauge(w, "nodeprobe_disk_available_bytes", "Space available to non-root users.", float64(disk.Available))
 	metrics.WriteGauge(w, "nodeprobe_disk_used_bytes", "Used space on the root filesystem.", float64(disk.Used))
+
+	receive := make([]metrics.Sample, 0, len(netDevs))
+	transmit := make([]metrics.Sample, 0, len(netDevs))
+	for _, dev := range netDevs {
+		labels := []metrics.Label{{Name: "device", Value: dev.Name}}
+		receive = append(receive, metrics.Sample{Labels: labels, Value: float64(dev.ReceiveBytes)})
+		transmit = append(transmit, metrics.Sample{Labels: labels, Value: float64(dev.TransmitBytes)})
+	}
+
+	metrics.WriteCounter(w, "nodeprobe_network_receive_bytes_total", "Bytes received since boot.", receive)
+	metrics.WriteCounter(w, "nodeprobe_network_transmit_bytes_total", "Bytes transmitted since boot.", transmit)
 }

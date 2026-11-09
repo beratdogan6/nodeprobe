@@ -49,8 +49,12 @@ These are single-machine numbers on an idle host, not a benchmark suite.
 ## Quick start
 
 ```sh
-go run ./cmd/nodeprobe        # listens on :9200
+go run ./cmd/nodeprobe                    # listens on :9200
+go run ./cmd/nodeprobe -addr 127.0.0.1:8080   # or pick the address yourself
 ```
+
+`-addr` takes any Go listen address, so `127.0.0.1:9200` keeps the agent off
+the network entirely. SIGINT or SIGTERM drains in-flight scrapes and exits 0.
 
 ```sh
 curl localhost:9200/healthz
@@ -78,6 +82,28 @@ cd deploy && docker compose up -d   # Grafana on :3000, Prometheus on :9090
 
 See [deploy/README.md](deploy/README.md) for the details, including why
 nodeprobe runs on the host rather than in a container.
+
+## Run as a systemd service
+
+`deploy/systemd/nodeprobe.service` runs the agent under `DynamicUser=yes` with
+a read-only filesystem, no capabilities and a syscall filter — it only reads
+`/proc` and calls `statfs`, so it needs nothing else.
+
+```sh
+sudo make install              # binary to /usr/local/bin, unit to /etc/systemd/system
+sudo systemctl enable --now nodeprobe
+```
+
+```sh
+systemctl status nodeprobe
+journalctl -u nodeprobe -f
+curl localhost:9200/healthz
+```
+
+`make install` runs `systemctl daemon-reload` for you. To change the listen
+address, edit `ExecStart` in the unit (or drop in an override with
+`sudo systemctl edit nodeprobe`) and reload. On WSL2 this needs
+`systemd=true` under `[boot]` in `/etc/wsl.conf` and a `wsl --shutdown`.
 
 ## Metrics
 
@@ -107,7 +133,7 @@ second are not exported but computed in Prometheus with
 ## How it works
 
 ```
-cmd/nodeprobe/      main: parse nothing, just listen on :9200
+cmd/nodeprobe/      main: -addr flag, listen, drain on SIGINT/SIGTERM
 internal/collector/ reads /proc and statfs, returns typed structs
 internal/metrics/    writes the Prometheus text format
 internal/server/     routes /healthz and /metrics onto the collectors

@@ -1,0 +1,78 @@
+[Unit]
+Description=nodeprobe Linux metrics agent
+Documentation=https://github.com/beratdogan6/nodeprobe
+# Only start once the network stack is up, so the listener can bind.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# A plain foreground process: systemd considers it started as soon as it execs.
+Type=simple
+ExecStart=/usr/local/bin/nodeprobe -addr :9200
+
+# Restart on a crash or non-zero exit, but not on a clean stop or `systemctl stop`.
+Restart=on-failure
+RestartSec=2
+
+# SIGTERM is what the graceful shutdown in main.go waits for; give it more
+# than the 5s shutdown timeout before systemd escalates to SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# --- Identity -------------------------------------------------------------
+# Run as a transient, unprivileged user systemd creates and destroys for us,
+# so there is no account to manage and no home directory to own.
+DynamicUser=yes
+# The process and its children can never gain privileges, so a setuid binary
+# it somehow executed would not escalate.
+NoNewPrivileges=yes
+
+# --- Filesystem -----------------------------------------------------------
+# The whole filesystem is read-only except /dev, /proc and /sys; nodeprobe
+# never writes anything, so it needs no writable path at all.
+ProtectSystem=strict
+# /home, /root and /run/user are invisible: user data is not ours to read.
+ProtectHome=yes
+# A private /tmp that is discarded on stop, so no temp file is shared or left.
+PrivateTmp=yes
+# Hide other processes in /proc; nodeprobe reads only the system-wide files.
+ProtectProc=invisible
+# ... but /proc/loadavg, /proc/meminfo and /proc/net/dev must stay readable.
+ProcSubset=all
+# Block writes to kernel tunables and tracing: reading metrics never needs them.
+ProtectKernelTunables=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+
+# --- Kernel and devices ---------------------------------------------------
+# No loading or unloading of kernel modules.
+ProtectKernelModules=yes
+# Only /dev/null, /dev/zero and friends; no real device nodes.
+PrivateDevices=yes
+# Drop every Linux capability: reading /proc and calling statfs needs none.
+CapabilityBoundingSet=
+AmbientCapabilities=
+# No setuid/setgid/sticky bits may be created.
+RestrictSUIDSGID=yes
+# No new namespaces, so the sandbox above cannot be undone from inside.
+RestrictNamespaces=yes
+# No writable-and-executable memory, which blocks the usual shellcode path.
+MemoryDenyWriteExecute=yes
+# No realtime scheduling, which a bug could otherwise use to hog a CPU.
+RestrictRealtime=yes
+# The execution domain is fixed, so emulated legacy personalities stay off.
+LockPersonality=yes
+
+# --- Network --------------------------------------------------------------
+# Only IPv4/IPv6 TCP sockets; no raw, netlink or unix-domain sockets.
+RestrictAddressFamilies=AF_INET AF_INET6
+# Allow only the syscalls a normal network service makes.
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+SystemCallArchitectures=native
+
+[Install]
+# Start at boot, once the system reaches its normal multi-user state.
+WantedBy=multi-user.target

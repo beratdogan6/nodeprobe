@@ -1,6 +1,8 @@
 # nodeprobe — build, test and install the agent plus its systemd unit.
 #
-# `make install` writes outside the repo and needs root:
+# `make install` writes outside the repo and needs root. Build first as your
+# own user, so root needs no Go toolchain:
+#     make build
 #     sudo make install
 
 BINARY  := bin/nodeprobe
@@ -16,7 +18,10 @@ build:
 test:
 	go test ./... -race
 
-install: build
+# Deliberately does not depend on `build`: run `make build` as your user,
+# then `sudo make install`, so root never needs Go on its PATH.
+install:
+	@test -x $(BINARY) || { echo "$(BINARY) not found - run 'make build' first (as your own user)"; exit 1; }
 	install -m 0755 $(BINARY) $(BINDIR)/nodeprobe
 	install -m 0644 $(UNIT) $(UNITDIR)/nodeprobe.service
 	systemctl daemon-reload

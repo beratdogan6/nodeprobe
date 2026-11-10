@@ -90,6 +90,7 @@ a read-only filesystem, no capabilities and a syscall filter — it only reads
 `/proc` and calls `statfs`, so it needs nothing else.
 
 ```sh
+make build                     # as your own user, so root needs no Go toolchain
 sudo make install              # binary to /usr/local/bin, unit to /etc/systemd/system
 sudo systemctl enable --now nodeprobe
 ```
@@ -100,8 +101,10 @@ journalctl -u nodeprobe -f
 curl localhost:9200/healthz
 ```
 
-`make install` runs `systemctl daemon-reload` for you. To change the listen
-address, edit `ExecStart` in the unit (or drop in an override with
+`make install` only copies the binary `make build` produced — it never invokes
+Go, so `sudo` does not need the toolchain on its `PATH` — and it runs
+`systemctl daemon-reload` for you. To change the listen address, edit
+`ExecStart` in the unit (or drop in an override with
 `sudo systemctl edit nodeprobe`) and reload. On WSL2 this needs
 `systemd=true` under `[boot]` in `/etc/wsl.conf` and a `wsl --shutdown`.
 
